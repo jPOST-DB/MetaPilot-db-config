@@ -206,7 +206,7 @@ class MAGDBEditor:
             return
 
         try:
-            species_count, dir_found = add_catalogue(self.data, name, folder, version)
+            species_count, dir_found, identifier = add_catalogue(self.data, name, folder, version)
         except ValueError as e:
             messagebox.showwarning("Warning", str(e))
             return
@@ -218,7 +218,9 @@ class MAGDBEditor:
             )
 
         self._refresh_table()
-        self._set_status(f"Added catalogue '{name}' (speciesCount={species_count})")
+        self._set_status(
+            f"Added catalogue '{name}' (identifier={identifier}, speciesCount={species_count})"
+        )
 
         self.entry_name.delete(0, tk.END)
         self.entry_folder.delete(0, tk.END)

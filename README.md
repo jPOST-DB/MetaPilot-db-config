@@ -119,19 +119,58 @@ The file is saved in compact JSON format (no indentation, no spaces) to match th
 2. Click **Add Catalogue**.
 3. The application automatically:
    - Sets `catalogueID` to the specified **Name**.
-   - Sets `identifier` to `"MGYG"` (fixed).
+   - Sets `identifier` by auto-detecting the leading alphabetic prefix of `.faa` filenames (e.g. `MGYG` for `MGYG000000001.faa`, `GCA` for `GCA000508425.faa`). Falls back to `"MGYG"` if no `.faa` files are found.
    - Sets `repository` to the specified **Folder** path.
-   - Counts `.faa` files in `<Folder>/original_db/` and sets `speciesCount` to that count.
+   - Scans `.faa` files in `<Folder>/original_db/` and sets `speciesCount` to the file count.
+   - Builds the `MGYG` parent/child tree from the `.faa` file names (see **MGYG Tree Generation** below).
    - Sets `date` to the current date/time in the format `"Thu Sep 04 00:00:00 GMT+09:00 2025"`.
    - Sets the following fields to fixed values:
      - `localAvailable`: `true`
      - `dbName`: `"original_db"`
      - `funcName`: `"eggNOG"`
      - `taxaName`: `"genomes-all_metadata.tsv"`
-   - Sets `MGYG` to an empty array `[]`.
 4. The new entry is appended to the `MGnify` array. Save to persist the changes.
-5. If the `original_db` subfolder does not exist, a notification is shown and `speciesCount` is set to 0.
+5. If the `original_db` subfolder does not exist, a notification is shown and `speciesCount` is set to 0 (with an empty `MGYG` array).
 6. Duplicate `catalogueID` values are rejected with a warning.
+
+### MGYG Tree Generation
+
+The `MGYG` array groups genome IDs into parent/children relationships. It is built automatically from the `.faa` file names in `<Folder>/original_db/`:
+
+- **Child ID** = file name without the `.faa` extension (e.g., `MGYG000000001.faa` -> `MGYG000000001`, `MGYG000001066.1.faa` -> `MGYG000001066.1`).
+- **Parent ID** = first 11 characters of the child ID (`MGYG` + 7 digits; e.g., `MGYG000001066.1` -> `MGYG0000010`).
+- Children sharing the same 11-character prefix are grouped under the same parent.
+
+Example:
+
+```
+original_db/
+  MGYG000000001.faa   ->  parent: MGYG0000000, child: MGYG000000001
+  MGYG000000002.faa   ->  parent: MGYG0000000, child: MGYG000000002
+  MGYG000001066.1.faa ->  parent: MGYG0000010, child: MGYG000001066.1
+```
+
+Produces:
+
+```json
+"MGYG": [
+  {
+    "parent": "MGYG0000000",
+    "children": [
+      {"child": "MGYG000000001"},
+      {"child": "MGYG000000002"}
+    ]
+  },
+  {
+    "parent": "MGYG0000010",
+    "children": [
+      {"child": "MGYG000001066.1"}
+    ]
+  }
+]
+```
+
+Both the parent list and the children within each parent are sorted in ascending order.
 
 ## Backup Behavior
 
@@ -164,7 +203,7 @@ for cat in list_catalogues(data):
     print(cat["catalogueID"])
 
 # Add a new catalogue
-species_count, dir_found = add_catalogue(data, "my-catalogue", "/path/to/folder", "v1.0")
+species_count, dir_found, identifier = add_catalogue(data, "my-catalogue", "/path/to/folder", "v1.0")
 
 # Delete catalogues
 delete_catalogues(data, ["old-catalogue"])
